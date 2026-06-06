@@ -1,54 +1,55 @@
 import request from '@/utils/request'
 
-export function getQRCode(id) {
+export function getMyViolations(params) {
   return request({
-    url: `/checkins/qrcode/${id}`,
+    url: '/checkin/my-violations',
+    method: 'get',
+    params
+  })
+}
+
+export function getCheckinQRCode(bookingId) {
+  return request({
+    url: `/checkin/qrcode/${bookingId}`,
     method: 'get'
   })
 }
 
-export function checkin(data) {
+export function scanCheckin(data) {
   return request({
-    url: '/checkins/checkin',
+    url: '/checkin/scan',
     method: 'post',
     data
   })
 }
 
-export function markNoShow(data) {
+export function manualCheckin(bookingId, data) {
   return request({
-    url: '/checkins/mark-no-show',
+    url: `/checkin/manual/${bookingId}`,
     method: 'post',
     data
-  })
-}
-
-export function getMyViolations(params) {
-  return request({
-    url: '/checkins/violations/my',
-    method: 'get',
-    params
-  })
-}
-
-export function getViolationList(params) {
-  return request({
-    url: '/checkins/violations',
-    method: 'get',
-    params
-  })
-}
-
-export function autoProcess() {
-  return request({
-    url: '/checkins/auto-process',
-    method: 'post'
   })
 }
 
 export function getCheckinRecords(bookingId) {
   return request({
-    url: `/checkins/records/${bookingId}`,
+    url: `/checkin/records/${bookingId}`,
     method: 'get'
+  })
+}
+
+export function processMissed(data) {
+  return request({
+    url: '/checkin/process-missed',
+    method: 'post',
+    data
+  })
+}
+
+export function getCheckinRecordList(params) {
+  return request({
+    url: '/admin/checkin-records',
+    method: 'get',
+    params
   })
 }

@@ -13,8 +13,7 @@ async function initDatabase() {
   })
 
   try {
-    await rootConn.execute(`DROP DATABASE IF EXISTS ${process.env.DB_NAME || 'meeting_room_db'}`)
-    await rootConn.execute(`CREATE DATABASE ${process.env.DB_NAME || 'meeting_room_db'} CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`)
+    await rootConn.execute(`CREATE DATABASE IF NOT EXISTS ${process.env.DB_NAME || 'meeting_room_db'} CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`)
     console.log('数据库创建成功')
 
     await rootConn.end()
@@ -47,8 +46,6 @@ async function initDatabase() {
         department_id INT,
         role ENUM('employee', 'dept_admin', 'admin', 'super_admin') NOT NULL DEFAULT 'employee',
         status TINYINT DEFAULT 1 COMMENT '1-正常 0-禁用',
-        violation_count INT NOT NULL DEFAULT 0 COMMENT '爽约次数',
-        last_violation_reset DATE COMMENT '上次爽约重置日期',
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
         FOREIGN KEY (department_id) REFERENCES departments(id) ON DELETE SET NULL
@@ -62,10 +59,87 @@ async function initDatabase() {
         facilities TEXT,
         description TEXT,
         image_url VARCHAR(255),
-        room_type ENUM('small', 'medium', 'large', 'training') NOT NULL DEFAULT 'medium' COMMENT 'small:小型(<=10人), medium:中型(11-20人), large:大型(21-50人), training:培训室(>50人)',
         status TINYINT DEFAULT 1 COMMENT '1-可用 0-不可用',
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
+
+      `CREATE TABLE IF NOT EXISTS assets (
+        id INT PRIMARY KEY AUTO_INCREMENT,
+        name VARCHAR(100) NOT NULL,
+        category VARCHAR(50) NOT NULL COMMENT 'projector,camera,whiteboard,microphone,other',
+        description TEXT,
+        total_quantity INT NOT NULL DEFAULT 0,
+        available_quantity INT NOT NULL DEFAULT 0,
+        status TINYINT DEFAULT 1 COMMENT '1-可用 0-不可用',
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
+
+      `CREATE TABLE IF NOT EXISTS bookings (
+        id INT PRIMARY KEY AUTO_INCREMENT,
+        user_id INT NOT NULL,
+        room_id INT NOT NULL,
+        meeting_title VARCHAR(200) NOT NULL,
+        meeting_description TEXT,
+        attendee_count INT NOT NULL DEFAULT 0,
+        date DATE NOT NULL,
+        start_time TIME NOT NULL,
+        end_time TIME NOT NULL,
+        is_cross_department TINYINT DEFAULT 0 COMMENT '0-部门内 1-跨部门',
+        meeting_type ENUM('normal', 'large') NOT NULL DEFAULT 'normal' COMMENT 'normal-普通会议 large-大型会议',
+        approval_status ENUM('auto_approved', 'pending_dept', 'pending_admin', 'approved', 'rejected') NOT NULL DEFAULT 'auto_approved',
+        current_approver_id INT,
+        rejection_reason TEXT,
+        checkin_code VARCHAR(50),
+        status ENUM('pending', 'in_use', 'completed', 'cancelled', 'missed') NOT NULL DEFAULT 'pending',
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+        FOREIGN KEY (room_id) REFERENCES meeting_rooms(id) ON DELETE CASCADE,
+        FOREIGN KEY (current_approver_id) REFERENCES users(id) ON DELETE SET NULL,
+        INDEX idx_room_date (room_id, date),
+        INDEX idx_approval_status (approval_status),
+        INDEX idx_user_status (user_id, status)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
+
+      `CREATE TABLE IF NOT EXISTS approval_records (
+        id INT PRIMARY KEY AUTO_INCREMENT,
+        booking_id INT NOT NULL,
+        approver_id INT,
+        approver_role ENUM('dept_admin', 'admin') NOT NULL,
+        status ENUM('approved', 'rejected') NOT NULL,
+        comment TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (booking_id) REFERENCES bookings(id) ON DELETE CASCADE,
+        FOREIGN KEY (approver_id) REFERENCES users(id) ON DELETE SET NULL
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
+
+      `CREATE TABLE IF NOT EXISTS checkin_records (
+        id INT PRIMARY KEY AUTO_INCREMENT,
+        booking_id INT NOT NULL,
+        user_id INT NOT NULL,
+        checkin_time DATETIME DEFAULT CURRENT_TIMESTAMP,
+        checkin_method ENUM('qrcode', 'manual') NOT NULL,
+        is_late TINYINT DEFAULT 0 COMMENT '0-准时 1-迟到',
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (booking_id) REFERENCES bookings(id) ON DELETE CASCADE,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+        UNIQUE KEY uk_booking_user (booking_id, user_id)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
+
+      `CREATE TABLE IF NOT EXISTS user_violations (
+        id INT PRIMARY KEY AUTO_INCREMENT,
+        user_id INT NOT NULL,
+        type ENUM('missed', 'late_return') NOT NULL,
+        booking_id INT,
+        borrowing_id INT,
+        description TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+        FOREIGN KEY (booking_id) REFERENCES bookings(id) ON DELETE SET NULL,
+        FOREIGN KEY (borrowing_id) REFERENCES borrowing_records(id) ON DELETE SET NULL,
+        INDEX idx_user_type (user_id, type)
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
 
       `CREATE TABLE IF NOT EXISTS assets (
@@ -81,104 +155,39 @@ async function initDatabase() {
         updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
 
-      `CREATE TABLE IF NOT EXISTS bookings (
-        id INT PRIMARY KEY AUTO_INCREMENT,
-        user_id INT NOT NULL,
-        room_id INT NOT NULL,
-        meeting_title VARCHAR(200) NOT NULL,
-        meeting_description TEXT,
-        attendee_count INT NOT NULL DEFAULT 0,
-        attendee_departments TEXT COMMENT '参会部门JSON数组',
-        is_cross_department TINYINT DEFAULT 0 COMMENT '0-本部门 1-跨部门',
-        date DATE NOT NULL,
-        start_time TIME NOT NULL,
-        end_time TIME NOT NULL,
-        status ENUM('pending', 'pending_approval', 'approved', 'rejected', 'in_use', 'completed', 'cancelled', 'no_show') NOT NULL DEFAULT 'pending',
-        approval_status ENUM('auto_approved', 'pending_dept', 'pending_admin', 'approved', 'rejected') COMMENT '审批状态',
-        current_approval_step INT DEFAULT 0 COMMENT '当前审批步骤',
-        checkin_status ENUM('pending', 'checked_in', 'no_show') DEFAULT 'pending' COMMENT '签到状态',
-        checkin_time DATETIME COMMENT '签到时间',
-        checkin_method ENUM('qrcode', 'manual') COMMENT '签到方式',
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-        FOREIGN KEY (room_id) REFERENCES meeting_rooms(id) ON DELETE CASCADE,
-        INDEX idx_room_date (room_id, date),
-        INDEX idx_user_id (user_id),
-        INDEX idx_status (status),
-        INDEX idx_approval_status (approval_status)
-      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
-
-      `CREATE TABLE IF NOT EXISTS approval_records (
-        id INT PRIMARY KEY AUTO_INCREMENT,
-        booking_id INT NOT NULL,
-        approver_id INT,
-        step INT NOT NULL COMMENT '审批步骤:1-部门审批,2-行政确认',
-        status ENUM('approved', 'rejected') NOT NULL,
-        comment TEXT,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (booking_id) REFERENCES bookings(id) ON DELETE CASCADE,
-        FOREIGN KEY (approver_id) REFERENCES users(id) ON DELETE SET NULL,
-        INDEX idx_booking_id (booking_id)
-      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
-
-      `CREATE TABLE IF NOT EXISTS checkin_records (
-        id INT PRIMARY KEY AUTO_INCREMENT,
-        booking_id INT NOT NULL,
-        user_id INT NOT NULL,
-        checkin_time DATETIME DEFAULT CURRENT_TIMESTAMP,
-        checkin_method ENUM('qrcode', 'manual') NOT NULL,
-        status ENUM('success', 'failed') NOT NULL DEFAULT 'success',
-        remark TEXT,
-        FOREIGN KEY (booking_id) REFERENCES bookings(id) ON DELETE CASCADE,
-        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-        INDEX idx_booking_id (booking_id),
-        INDEX idx_user_id (user_id)
-      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
-
-      `CREATE TABLE IF NOT EXISTS violation_records (
-        id INT PRIMARY KEY AUTO_INCREMENT,
-        user_id INT NOT NULL,
-        booking_id INT NOT NULL,
-        violation_type ENUM('no_show', 'late_cancel', 'other') NOT NULL DEFAULT 'no_show',
-        description TEXT,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-        FOREIGN KEY (booking_id) REFERENCES bookings(id) ON DELETE CASCADE,
-        INDEX idx_user_id (user_id)
-      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
-
       `CREATE TABLE IF NOT EXISTS borrowing_records (
         id INT PRIMARY KEY AUTO_INCREMENT,
         booking_id INT NOT NULL,
         user_id INT NOT NULL,
         asset_id INT NOT NULL,
         quantity INT NOT NULL DEFAULT 1,
-        expected_return_date DATE COMMENT '预期归还日期',
+        expected_return_date DATE COMMENT '预计归还日期',
         status ENUM('borrowed', 'returned', 'overdue') NOT NULL DEFAULT 'borrowed',
         borrowed_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         returned_at DATETIME,
+        reminder_sent TINYINT DEFAULT 0 COMMENT '0-未提醒 1-已提醒',
         FOREIGN KEY (booking_id) REFERENCES bookings(id) ON DELETE CASCADE,
         FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
         FOREIGN KEY (asset_id) REFERENCES assets(id) ON DELETE CASCADE,
-        INDEX idx_status (status)
+        INDEX idx_status_expected (status, expected_return_date)
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
 
       `CREATE TABLE IF NOT EXISTS asset_repairs (
         id INT PRIMARY KEY AUTO_INCREMENT,
         asset_id INT NOT NULL,
         reporter_id INT NOT NULL,
-        quantity INT NOT NULL DEFAULT 1,
-        description TEXT NOT NULL,
-        status ENUM('pending', 'repairing', 'completed', 'cancelled') NOT NULL DEFAULT 'pending',
+        title VARCHAR(200) NOT NULL,
+        description TEXT,
+        fault_level ENUM('minor', 'major', 'critical') NOT NULL DEFAULT 'minor',
+        status ENUM('pending', 'repairing', 'resolved', 'cancelled') NOT NULL DEFAULT 'pending',
         repair_note TEXT,
+        repaired_by INT,
         repaired_at DATETIME,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
         FOREIGN KEY (asset_id) REFERENCES assets(id) ON DELETE CASCADE,
         FOREIGN KEY (reporter_id) REFERENCES users(id) ON DELETE CASCADE,
-        INDEX idx_asset_id (asset_id),
-        INDEX idx_status (status)
+        FOREIGN KEY (repaired_by) REFERENCES users(id) ON DELETE SET NULL
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
 
       `CREATE TABLE IF NOT EXISTS asset_usage_logs (
@@ -186,21 +195,25 @@ async function initDatabase() {
         asset_id INT NOT NULL,
         user_id INT NOT NULL,
         booking_id INT,
-        action ENUM('borrow', 'return', 'repair', 'repair_complete') NOT NULL,
+        action ENUM('borrow', 'return', 'repair', 'scrap') NOT NULL,
         quantity INT NOT NULL DEFAULT 1,
         remark TEXT,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (asset_id) REFERENCES assets(id) ON DELETE CASCADE,
         FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
         FOREIGN KEY (booking_id) REFERENCES bookings(id) ON DELETE SET NULL,
-        INDEX idx_asset_id (asset_id),
-        INDEX idx_user_id (user_id)
+        INDEX idx_asset_time (asset_id, created_at)
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
 
-      `CREATE TABLE IF NOT EXISTS system_settings (
+      `CREATE TABLE IF NOT EXISTS exception_rules (
         id INT PRIMARY KEY AUTO_INCREMENT,
-        setting_key VARCHAR(100) NOT NULL UNIQUE,
-        setting_value TEXT,
+        rule_name VARCHAR(100) NOT NULL,
+        rule_type ENUM('missed_meeting', 'late_return', 'booking_conflict', 'over_capacity') NOT NULL,
+        threshold INT NOT NULL DEFAULT 3 COMMENT '触发阈值',
+        time_window INT NOT NULL DEFAULT 30 COMMENT '时间窗口(天)',
+        penalty_action ENUM('warn', 'restrict_booking', 'restrict_assets', 'disable_account') NOT NULL DEFAULT 'warn',
+        penalty_duration INT NOT NULL DEFAULT 7 COMMENT '处罚持续时间(天)',
+        is_enabled TINYINT DEFAULT 1,
         description TEXT,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
@@ -209,15 +222,14 @@ async function initDatabase() {
       `CREATE TABLE IF NOT EXISTS notifications (
         id INT PRIMARY KEY AUTO_INCREMENT,
         user_id INT NOT NULL,
-        type ENUM('approval', 'checkin', 'asset', 'system') NOT NULL,
+        type ENUM('approval', 'checkin', 'asset', 'violation', 'system') NOT NULL,
         title VARCHAR(200) NOT NULL,
         content TEXT,
         related_id INT,
         is_read TINYINT DEFAULT 0,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-        INDEX idx_user_id (user_id),
-        INDEX idx_is_read (is_read)
+        INDEX idx_user_read (user_id, is_read)
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`
     ]
 
@@ -270,40 +282,19 @@ async function initDatabase() {
     const [roomCount] = await conn.execute('SELECT COUNT(*) as count FROM meeting_rooms')
     if (roomCount[0].count === 0) {
       const rooms = [
-        ['创新会议厅', 20, 'A座3楼301', '投影仪,白板,音响系统,视频会议', '可容纳20人的中型会议室', 'https://images.unsplash.com/photo-1497366216548-37526070297c?w=600', 'medium'],
-        ['协作小会议室', 8, 'A座4楼402', '投影仪,白板,电视屏幕', '小型讨论会议室', 'https://images.unsplash.com/photo-1497366754035-f200968a6e72?w=600', 'small'],
-        ['董事会议室', 30, 'B座1楼101', '投影仪,白板,音响系统,视频会议,同声传译', '高端董事会议专用', 'https://images.unsplash.com/photo-1462826303086-329426d1aef5?w=600', 'large'],
-        ['培训室', 50, 'C座2楼201', '投影仪,白板,音响系统,麦克风', '大型培训专用', 'https://images.unsplash.com/photo-1505373877841-8d25f7d46678?w=600', 'training'],
-        ['视频会议室', 15, 'A座5楼501', '投影仪,视频会议系统,音响系统,麦克风', '远程视频会议专用', 'https://images.unsplash.com/photo-1517502884422-41eaead166d4?w=600', 'small']
+        ['创新会议厅', 20, 'A座3楼301', '投影仪,白板,音响系统,视频会议', '可容纳20人的中型会议室', 'https://images.unsplash.com/photo-1497366216548-37526070297c?w=600'],
+        ['协作小会议室', 8, 'A座4楼402', '投影仪,白板,电视屏幕', '小型讨论会议室', 'https://images.unsplash.com/photo-1497366754035-f200968a6e72?w=600'],
+        ['董事会议室', 30, 'B座1楼101', '投影仪,白板,音响系统,视频会议,同声传译', '高端董事会议专用', 'https://images.unsplash.com/photo-1462826303086-329426d1aef5?w=600'],
+        ['培训室', 50, 'C座2楼201', '投影仪,白板,音响系统,麦克风', '大型培训专用', 'https://images.unsplash.com/photo-1505373877841-8d25f7d46678?w=600'],
+        ['视频会议室', 15, 'A座5楼501', '投影仪,视频会议系统,音响系统,麦克风', '远程视频会议专用', 'https://images.unsplash.com/photo-1517502884422-41eaead166d4?w=600']
       ]
       for (const room of rooms) {
         await conn.execute(
-          'INSERT INTO meeting_rooms (name, capacity, location, facilities, description, image_url, room_type) VALUES (?, ?, ?, ?, ?, ?, ?)',
+          'INSERT INTO meeting_rooms (name, capacity, location, facilities, description, image_url) VALUES (?, ?, ?, ?, ?, ?)',
           room
         )
       }
       console.log('会议室数据初始化完成')
-    }
-
-    const [settingCount] = await conn.execute('SELECT COUNT(*) as count FROM system_settings')
-    if (settingCount[0].count === 0) {
-      const settings = [
-        ['max_violation_count', '3', '最大爽约次数，超过则限制预约'],
-        ['violation_reset_period', '30', '爽约记录重置周期（天）'],
-        ['checkin_grace_minutes', '15', '签到宽限时间（分钟），超过开始时间此分钟数未签到则标记爽约'],
-        ['auto_checkout_minutes', '30', '自动结束会议时间（分钟），超过结束时间此分钟数自动标记完成'],
-        ['asset_return_days', '3', '资产借用归还期限（天）'],
-        ['overdue_reminder_days', '1', '超期提醒提前天数'],
-        ['large_meeting_threshold', '20', '大型会议人数阈值，超过此人数需审批'],
-        ['approval_required_room_types', 'large,training', '需要审批的会议室类型，逗号分隔']
-      ]
-      for (const [key, value, desc] of settings) {
-        await conn.execute(
-          'INSERT INTO system_settings (setting_key, setting_value, description) VALUES (?, ?, ?)',
-          [key, value, desc]
-        )
-      }
-      console.log('系统设置初始化完成')
     }
 
     const [assetCount] = await conn.execute('SELECT COUNT(*) as count FROM assets')
@@ -333,17 +324,34 @@ async function initDatabase() {
       const formatDate = (d) => d.toISOString().split('T')[0]
       
       const bookings = [
-        [4, 1, '技术方案评审会', '讨论Q2技术方案', 8, formatDate(tomorrow), '09:00:00', '10:30:00'],
-        [4, 2, '产品需求讨论', '新功能需求评审', 5, formatDate(tomorrow), '14:00:00', '15:00:00'],
-        [5, 3, '市场营销会议', 'Q2市场推广计划', 15, formatDate(today), '10:00:00', '12:00:00']
+        [4, 1, '技术方案评审会', '讨论Q2技术方案', 8, formatDate(tomorrow), '09:00:00', '10:30:00', 0, 'normal', 'auto_approved'],
+        [4, 2, '产品需求讨论', '新功能需求评审', 5, formatDate(tomorrow), '14:00:00', '15:00:00', 0, 'normal', 'auto_approved'],
+        [5, 3, '市场营销会议', 'Q2市场推广计划', 15, formatDate(today), '10:00:00', '12:00:00', 0, 'normal', 'auto_approved']
       ]
       for (const booking of bookings) {
         const [result] = await conn.execute(
-          'INSERT INTO bookings (user_id, room_id, meeting_title, meeting_description, attendee_count, date, start_time, end_time, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+          'INSERT INTO bookings (user_id, room_id, meeting_title, meeting_description, attendee_count, date, start_time, end_time, is_cross_department, meeting_type, approval_status, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
           [...booking, 'pending']
         )
       }
       console.log('预约数据初始化完成')
+    }
+
+    const [ruleCount] = await conn.execute('SELECT COUNT(*) as count FROM exception_rules')
+    if (ruleCount[0].count === 0) {
+      const rules = [
+        ['爽约会议限制', 'missed_meeting', 3, 30, 'restrict_booking', 7, '30天内爽约3次以上，将禁止预约7天'],
+        ['逾期归还警告', 'late_return', 2, 30, 'warn', 7, '30天内逾期归还2次以上，将收到警告'],
+        ['逾期归还限制', 'late_return', 5, 30, 'restrict_assets', 14, '30天内逾期归还5次以上，将禁止借用资产14天'],
+        ['频繁预约冲突', 'booking_conflict', 5, 30, 'warn', 7, '30天内预约冲突5次以上，将收到警告']
+      ]
+      for (const rule of rules) {
+        await conn.execute(
+          'INSERT INTO exception_rules (rule_name, rule_type, threshold, time_window, penalty_action, penalty_duration, description) VALUES (?, ?, ?, ?, ?, ?, ?)',
+          rule
+        )
+      }
+      console.log('异常规则数据初始化完成')
     }
 
     await conn.end()

@@ -10,7 +10,7 @@ export function getPendingApprovals(params) {
 
 export function getMyApprovals(params) {
   return request({
-    url: '/approvals/my',
+    url: '/approvals/my-approvals',
     method: 'get',
     params
   })
@@ -37,12 +37,5 @@ export function resubmitBooking(id, data) {
     url: `/approvals/${id}/resubmit`,
     method: 'put',
     data
-  })
-}
-
-export function getApprovalRecords(id) {
-  return request({
-    url: `/approvals/${id}/records`,
-    method: 'get'
   })
 }

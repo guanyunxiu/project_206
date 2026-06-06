@@ -56,64 +56,22 @@ const routes = [
         meta: { title: '我的借用', requiresAuth: true }
       },
       {
+        path: 'my-violations',
+        name: 'MyViolations',
+        component: () => import('@/views/MyViolations.vue'),
+        meta: { title: '违规记录', requiresAuth: true }
+      },
+      {
+        path: 'notifications',
+        name: 'Notifications',
+        component: () => import('@/views/Notifications.vue'),
+        meta: { title: '消息通知', requiresAuth: true }
+      },
+      {
         path: 'profile',
         name: 'Profile',
         component: () => import('@/views/Profile.vue'),
         meta: { title: '个人中心', requiresAuth: true }
-      },
-      {
-        path: 'approvals/pending',
-        name: 'PendingApprovals',
-        component: () => import('@/views/approvals/PendingApprovals.vue'),
-        meta: { title: '待我审批', requiresAuth: true, roles: ['dept_admin', 'admin', 'super_admin'] }
-      },
-      {
-        path: 'approvals/my',
-        name: 'MyApprovals',
-        component: () => import('@/views/approvals/MyApprovals.vue'),
-        meta: { title: '我的审批', requiresAuth: true }
-      },
-      {
-        path: 'approvals/:id',
-        name: 'ApprovalDetail',
-        component: () => import('@/views/approvals/ApprovalDetail.vue'),
-        meta: { title: '审批详情', requiresAuth: true }
-      },
-      {
-        path: 'checkin/:id',
-        name: 'Checkin',
-        component: () => import('@/views/checkin/Checkin.vue'),
-        meta: { title: '会议签到', requiresAuth: true }
-      },
-      {
-        path: 'violations',
-        name: 'Violations',
-        component: () => import('@/views/checkin/ViolationRecords.vue'),
-        meta: { title: '爽约记录', requiresAuth: true }
-      },
-      {
-        path: 'assets/:id/repair',
-        name: 'AssetRepair',
-        component: () => import('@/views/assets/AssetRepair.vue'),
-        meta: { title: '资产报修', requiresAuth: true }
-      },
-      {
-        path: 'assets/:id/logs',
-        name: 'AssetUsageLogs',
-        component: () => import('@/views/assets/AssetUsageLogs.vue'),
-        meta: { title: '使用日志', requiresAuth: true }
-      },
-      {
-        path: 'admin/repairs',
-        name: 'AdminRepairs',
-        component: () => import('@/views/admin/RepairManage.vue'),
-        meta: { title: '报修管理', requiresAuth: true, roles: ['dept_admin', 'admin', 'super_admin'] }
-      },
-      {
-        path: 'admin/overdue',
-        name: 'AdminOverdue',
-        component: () => import('@/views/admin/OverdueManage.vue'),
-        meta: { title: '逾期管理', requiresAuth: true, roles: ['dept_admin', 'admin', 'super_admin'] }
       },
       {
         path: 'admin/rooms',
@@ -146,16 +104,40 @@ const routes = [
         meta: { title: '部门管理', requiresAuth: true, roles: ['admin', 'super_admin'] }
       },
       {
-        path: 'admin/settings',
-        name: 'AdminSettings',
-        component: () => import('@/views/admin/SystemSettings.vue'),
-        meta: { title: '系统设置', requiresAuth: true, roles: ['admin', 'super_admin'] }
+        path: 'admin/approvals',
+        name: 'AdminApprovals',
+        component: () => import('@/views/admin/ApprovalManage.vue'),
+        meta: { title: '审批管理', requiresAuth: true, roles: ['dept_admin', 'admin', 'super_admin'] }
       },
       {
-        path: 'dashboard/big-screen',
+        path: 'admin/checkin',
+        name: 'AdminCheckin',
+        component: () => import('@/views/admin/CheckinManage.vue'),
+        meta: { title: '签到管理', requiresAuth: true, roles: ['dept_admin', 'admin', 'super_admin'] }
+      },
+      {
+        path: 'admin/asset-repairs',
+        name: 'AdminAssetRepairs',
+        component: () => import('@/views/admin/AssetRepairManage.vue'),
+        meta: { title: '报修管理', requiresAuth: true, roles: ['dept_admin', 'admin', 'super_admin'] }
+      },
+      {
+        path: 'admin/overdue-assets',
+        name: 'AdminOverdueAssets',
+        component: () => import('@/views/admin/OverdueAssetManage.vue'),
+        meta: { title: '逾期管理', requiresAuth: true, roles: ['dept_admin', 'admin', 'super_admin'] }
+      },
+      {
+        path: 'admin/exception-rules',
+        name: 'AdminExceptionRules',
+        component: () => import('@/views/admin/ExceptionRuleManage.vue'),
+        meta: { title: '异常规则', requiresAuth: true, roles: ['admin', 'super_admin'] }
+      },
+      {
+        path: 'big-screen',
         name: 'BigScreen',
-        component: () => import('@/views/dashboard/BigScreen.vue'),
-        meta: { title: '统计大屏', requiresAuth: true, roles: ['admin', 'super_admin'] }
+        component: () => import('@/views/BigScreen.vue'),
+        meta: { title: '统计大屏', requiresAuth: true }
       }
     ]
   }

@@ -1,7 +1,7 @@
 const express = require('express')
 const { query, transaction } = require('../config/database')
 const { authenticateToken, requireDeptAdminOrHigher, requireAdminOrHigher, requireSuperAdmin } = require('../middleware/auth')
-const { createPagination, getRoleName, getStatusName, hashPassword, getAssetCategoryName } = require('../utils/helper')
+const { createPagination, getRoleName, getStatusName, hashPassword, getAssetCategoryName, getCheckinMethodName } = require('../utils/helper')
 
 const router = express.Router()
 
@@ -831,6 +831,76 @@ router.delete('/departments/:id', authenticateToken, requireSuperAdmin(), async 
     await query('DELETE FROM departments WHERE id = ?', [id])
 
     res.success(null, '部门删除成功')
+  } catch (error) {
+    next(error)
+  }
+})
+
+router.get('/checkin-records', authenticateToken, requireDeptAdminOrHigher(), async (req, res, next) => {
+  try {
+    const { page, pageSize, keyword, checkin_method, is_late, date_from, date_to } = req.query
+    const { offset, limit } = createPagination(page, pageSize)
+
+    let whereClauses = []
+    let params = []
+
+    if (keyword) {
+      whereClauses.push('(b.meeting_title LIKE ? OR u.real_name LIKE ? OR r.name LIKE ?)')
+      const keywordParam = `%${keyword}%`
+      params.push(keywordParam, keywordParam, keywordParam)
+    }
+    if (checkin_method) {
+      whereClauses.push('cr.checkin_method = ?')
+      params.push(checkin_method)
+    }
+    if (is_late !== undefined && is_late !== '') {
+      whereClauses.push('cr.is_late = ?')
+      params.push(parseInt(is_late))
+    }
+    if (date_from) {
+      whereClauses.push('DATE(cr.checkin_time) >= ?')
+      params.push(date_from)
+    }
+    if (date_to) {
+      whereClauses.push('DATE(cr.checkin_time) <= ?')
+      params.push(date_to)
+    }
+
+    const whereSql = whereClauses.length > 0 ? `WHERE ${whereClauses.join(' AND ')}` : ''
+
+    const records = await query(
+      `SELECT cr.*, b.meeting_title, b.date, b.start_time, b.end_time,
+              r.name as room_name, u.real_name as user_name, u.username
+       FROM checkin_records cr
+       LEFT JOIN bookings b ON cr.booking_id = b.id
+       LEFT JOIN meeting_rooms r ON b.room_id = r.id
+       LEFT JOIN users u ON cr.user_id = u.id
+       ${whereSql}
+       ORDER BY cr.checkin_time DESC
+       LIMIT ${parseInt(limit)} OFFSET ${parseInt(offset)}`,
+      params
+    )
+
+    const list = records.map(r => ({
+      ...r,
+      checkin_method_name: getCheckinMethodName(r.checkin_method)
+    }))
+
+    const [countResult] = await query(
+      `SELECT COUNT(*) as total FROM checkin_records cr
+       LEFT JOIN bookings b ON cr.booking_id = b.id
+       LEFT JOIN meeting_rooms r ON b.room_id = r.id
+       LEFT JOIN users u ON cr.user_id = u.id
+       ${whereSql}`,
+      params
+    )
+
+    res.success({
+      list,
+      total: countResult.total,
+      page: parseInt(page) || 1,
+      page_size: parseInt(pageSize) || 10
+    })
   } catch (error) {
     next(error)
   }

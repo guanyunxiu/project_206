@@ -37,13 +37,10 @@ function getRoleName(role) {
 function getStatusName(status) {
   const statusMap = {
     'pending': '待使用',
-    'pending_approval': '待审批',
-    'approved': '已通过',
-    'rejected': '已拒绝',
     'in_use': '使用中',
     'completed': '已完成',
     'cancelled': '已取消',
-    'no_show': '已爽约'
+    'missed': '已爽约'
   }
   return statusMap[status] || status
 }
@@ -51,21 +48,20 @@ function getStatusName(status) {
 function getApprovalStatusName(status) {
   const statusMap = {
     'auto_approved': '自动通过',
-    'pending_dept': '待部门审批',
+    'pending_dept': '待部门审核',
     'pending_admin': '待行政确认',
     'approved': '已通过',
-    'rejected': '已拒绝'
+    'rejected': '已驳回'
   }
   return statusMap[status] || status
 }
 
-function getCheckinStatusName(status) {
-  const statusMap = {
-    'pending': '待签到',
-    'checked_in': '已签到',
-    'no_show': '未签到'
+function getMeetingTypeName(type) {
+  const typeMap = {
+    'normal': '普通会议',
+    'large': '大型会议'
   }
-  return statusMap[status] || status
+  return typeMap[type] || type
 }
 
 function getCheckinMethodName(method) {
@@ -74,15 +70,6 @@ function getCheckinMethodName(method) {
     'manual': '后台签到'
   }
   return methodMap[method] || method
-}
-
-function getViolationTypeName(type) {
-  const typeMap = {
-    'no_show': '未签到爽约',
-    'late_cancel': '临时取消',
-    'other': '其他违规'
-  }
-  return typeMap[type] || type
 }
 
 function getBorrowStatusName(status) {
@@ -98,38 +85,45 @@ function getRepairStatusName(status) {
   const statusMap = {
     'pending': '待处理',
     'repairing': '维修中',
-    'completed': '已完成',
+    'resolved': '已解决',
     'cancelled': '已取消'
   }
   return statusMap[status] || status
 }
 
-function getAssetActionName(action) {
-  const actionMap = {
-    'borrow': '借用',
-    'return': '归还',
-    'repair': '报修',
-    'repair_complete': '维修完成'
+function getFaultLevelName(level) {
+  const levelMap = {
+    'minor': '轻微',
+    'major': '严重',
+    'critical': '紧急'
   }
-  return actionMap[action] || action
+  return levelMap[level] || level
 }
 
-function getRoomTypeName(type) {
+function getRuleTypeName(type) {
   const typeMap = {
-    'small': '小型会议室',
-    'medium': '中型会议室',
-    'large': '大型会议室',
-    'training': '培训室'
+    'missed_meeting': '爽约会议',
+    'late_return': '逾期归还',
+    'booking_conflict': '预约冲突',
+    'over_capacity': '超容预约'
   }
   return typeMap[type] || type
 }
 
-function getNotificationTypeName(type) {
+function getPenaltyActionName(action) {
+  const actionMap = {
+    'warn': '警告',
+    'restrict_booking': '限制预约',
+    'restrict_assets': '限制借用资产',
+    'disable_account': '禁用账户'
+  }
+  return actionMap[action] || action
+}
+
+function getViolationTypeName(type) {
   const typeMap = {
-    'approval': '审批通知',
-    'checkin': '签到提醒',
-    'asset': '资产通知',
-    'system': '系统通知'
+    'missed': '会议爽约',
+    'late_return': '逾期归还'
   }
   return typeMap[type] || type
 }
@@ -180,14 +174,14 @@ module.exports = {
   getRoleName,
   getStatusName,
   getApprovalStatusName,
-  getCheckinStatusName,
+  getMeetingTypeName,
   getCheckinMethodName,
-  getViolationTypeName,
   getBorrowStatusName,
   getRepairStatusName,
-  getAssetActionName,
+  getFaultLevelName,
+  getRuleTypeName,
+  getPenaltyActionName,
+  getViolationTypeName,
   getAssetCategoryName,
-  getRoomTypeName,
-  getNotificationTypeName,
   checkTimeConflict
 }

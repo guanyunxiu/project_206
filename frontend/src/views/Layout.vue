@@ -37,22 +37,15 @@
           <el-icon><Box /></el-icon>
           <template #title>我的借用</template>
         </el-menu-item>
-        <el-sub-menu index="approvals">
-          <template #title>
-            <el-icon><CircleCheck /></el-icon>
-            <span>审批管理</span>
-          </template>
-          <el-menu-item index="/approvals/pending" v-if="isAdmin">待我审批</el-menu-item>
-          <el-menu-item index="/approvals/my">我的审批</el-menu-item>
-        </el-sub-menu>
-        <el-sub-menu index="checkin">
-          <template #title>
-            <el-icon><Check /></el-icon>
-            <span>签到管理</span>
-          </template>
-          <el-menu-item index="/violations">爽约记录</el-menu-item>
-        </el-sub-menu>
-        <el-menu-item index="/dashboard/big-screen" v-if="isSuperOrAdmin">
+        <el-menu-item index="/my-violations">
+          <el-icon><Warning /></el-icon>
+          <template #title>违规记录</template>
+        </el-menu-item>
+        <el-menu-item index="/notifications">
+          <el-icon><Bell /></el-icon>
+          <template #title>消息通知</template>
+        </el-menu-item>
+        <el-menu-item index="/big-screen">
           <el-icon><Monitor /></el-icon>
           <template #title>统计大屏</template>
         </el-menu-item>
@@ -64,11 +57,13 @@
           <el-menu-item index="/admin/rooms">会议室管理</el-menu-item>
           <el-menu-item index="/admin/assets">资产管理</el-menu-item>
           <el-menu-item index="/admin/bookings">预约管理</el-menu-item>
-          <el-menu-item index="/admin/repairs">报修管理</el-menu-item>
-          <el-menu-item index="/admin/overdue">逾期管理</el-menu-item>
+          <el-menu-item index="/admin/approvals">审批管理</el-menu-item>
+          <el-menu-item index="/admin/checkin">签到管理</el-menu-item>
+          <el-menu-item index="/admin/asset-repairs">报修管理</el-menu-item>
+          <el-menu-item index="/admin/overdue-assets">逾期管理</el-menu-item>
           <el-menu-item index="/admin/users" v-if="isSuperOrAdmin">用户管理</el-menu-item>
           <el-menu-item index="/admin/departments" v-if="isSuperOrAdmin">部门管理</el-menu-item>
-          <el-menu-item index="/admin/settings" v-if="isSuperOrAdmin">系统设置</el-menu-item>
+          <el-menu-item index="/admin/exception-rules" v-if="isSuperOrAdmin">异常规则</el-menu-item>
         </el-sub-menu>
       </el-menu>
     </el-aside>
@@ -152,8 +147,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   OfficeBuilding, DataAnalysis, Calendar, List, Goods, Box, Setting,
-  User, Lock, SwitchButton, Fold, Expand, ArrowDown,
-  Check, CircleCheck, Warning, Tickets, Monitor
+  User, Lock, SwitchButton, Fold, Expand, ArrowDown, Warning, Bell, Monitor
 } from '@element-plus/icons-vue'
 import { useUserStore } from '@/store/user'
 import { changePassword } from '@/api/user'

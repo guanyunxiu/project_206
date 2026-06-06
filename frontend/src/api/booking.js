@@ -8,13 +8,23 @@ export function checkConflict(data) {
   })
 }
 
-export function checkViolation() {
-  return request({
-    url: '/bookings/check-violation',
-    method: 'post'
-  })
-}
-
+/**
+ * 创建会议室预约
+ * @param {Object} data - 预约数据
+ * @param {number} data.room_id - 会议室ID
+ * @param {string} data.meeting_title - 会议主题
+ * @param {string} [data.meeting_description] - 会议描述
+ * @param {number} [data.attendee_count] - 参会人数
+ * @param {string} data.date - 预约日期 YYYY-MM-DD
+ * @param {string} data.start_time - 开始时间 HH:mm
+ * @param {string} data.end_time - 结束时间 HH:mm
+ * @param {boolean} [data.is_cross_department] - 是否跨部门
+ * @param {string} [data.meeting_type] - 会议类型: normal, large
+ * @param {string} [data.expected_return_date] - 资产预计归还日期
+ * @param {Array} [data.assets] - 借用资产列表
+ * @param {number} data.assets[].asset_id - 资产ID
+ * @param {number} data.assets[].quantity - 借用数量
+ */
 export function createBooking(data) {
   return request({
     url: '/bookings',
@@ -58,34 +68,5 @@ export function getStatistics(params) {
     url: '/statistics',
     method: 'get',
     params
-  })
-}
-
-export function getDashboardData() {
-  return request({
-    url: '/statistics/dashboard',
-    method: 'get'
-  })
-}
-
-export function getAnomalies() {
-  return request({
-    url: '/statistics/anomalies',
-    method: 'get'
-  })
-}
-
-export function getSystemSettings() {
-  return request({
-    url: '/statistics/settings',
-    method: 'get'
-  })
-}
-
-export function updateSystemSettings(data) {
-  return request({
-    url: '/statistics/settings',
-    method: 'put',
-    data
   })
 }

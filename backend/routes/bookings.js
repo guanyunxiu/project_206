@@ -1,36 +1,9 @@
 const express = require('express')
 const { query, transaction } = require('../config/database')
 const { authenticateToken } = require('../middleware/auth')
-const { createPagination, checkTimeConflict, getStatusName, getApprovalStatusName, getCheckinStatusName, getRoomTypeName } = require('../utils/helper')
+const { createPagination, checkTimeConflict, getStatusName, getApprovalStatusName, getMeetingTypeName } = require('../utils/helper')
 
 const router = express.Router()
-
-async function getSystemSettings() {
-  const settings = await query('SELECT setting_key, setting_value FROM system_settings')
-  const result = {}
-  settings.forEach(s => {
-    result[s.setting_key] = s.setting_value
-  })
-  return result
-}
-
-async function createNotification(userId, type, title, content, relatedId = null) {
-  await query(
-    'INSERT INTO notifications (user_id, type, title, content, related_id) VALUES (?, ?, ?, ?, ?)',
-    [userId, type, title, content, relatedId]
-  )
-}
-
-function needsApproval(roomType, attendeeCount, isCrossDepartment, settings) {
-  const largeThreshold = parseInt(settings.large_meeting_threshold || 20)
-  const approvalRequiredTypes = (settings.approval_required_room_types || 'large,training').split(',')
-  
-  if (isCrossDepartment) return true
-  if (approvalRequiredTypes.includes(roomType)) return true
-  if (attendeeCount >= largeThreshold) return true
-  
-  return false
-}
 
 router.post('/check', authenticateToken, async (req, res, next) => {
   try {
@@ -83,50 +56,34 @@ router.post('/check', authenticateToken, async (req, res, next) => {
   }
 })
 
-router.post('/check-violation', authenticateToken, async (req, res, next) => {
-  try {
-    const userId = req.user.id
-    const settings = await getSystemSettings()
-    const maxViolations = parseInt(settings.max_violation_count || 3)
-
-    const [userData] = await query('SELECT violation_count, last_violation_reset FROM users WHERE id = ?', [userId])
-    
-    let violationCount = userData[0].violation_count || 0
-    const resetPeriod = parseInt(settings.violation_reset_period || 30)
-    
-    if (userData[0].last_violation_reset) {
-      const lastReset = new Date(userData[0].last_violation_reset)
-      const now = new Date()
-      const daysSinceReset = Math.floor((now - lastReset) / (1000 * 60 * 60 * 24))
-      
-      if (daysSinceReset >= resetPeriod) {
-        await query('UPDATE users SET violation_count = 0, last_violation_reset = CURDATE() WHERE id = ?', [userId])
-        violationCount = 0
-      }
-    }
-
-    const isBlocked = violationCount >= maxViolations
-
-    res.success({
-      violation_count: violationCount,
-      max_violations: maxViolations,
-      is_blocked: isBlocked,
-      remaining_violations: maxViolations - violationCount
-    })
-  } catch (error) {
-    next(error)
-  }
-})
-
 router.post('/', authenticateToken, async (req, res, next) => {
   try {
     const userId = req.user.id
-    const { room_id, meeting_title, meeting_description, attendee_count, date, start_time, end_time, assets, attendee_departments, is_cross_department } = req.body
+    const { room_id, meeting_title, meeting_description, attendee_count, date, start_time, end_time, is_cross_department, meeting_type, assets, expected_return_date } = req.body
 
     if (!room_id || !meeting_title || !date || !start_time || !end_time) {
       return res.status(400).json({
         code: 400,
         message: '请填写完整的预约信息',
+        data: null,
+        timestamp: Date.now()
+      })
+    }
+
+    const [violationCheck] = await query(
+      "SELECT COUNT(*) as count FROM user_violations uv " +
+      "INNER JOIN exception_rules er ON er.rule_type = 'missed_meeting' AND er.is_enabled = 1 " +
+      "WHERE uv.user_id = ? AND uv.type = 'missed' " +
+      "AND uv.created_at >= DATE_SUB(NOW(), INTERVAL er.time_window DAY) " +
+      "GROUP BY uv.user_id, er.threshold " +
+      "HAVING COUNT(*) >= er.threshold " +
+      "LIMIT 1",
+      [userId]
+    )
+    if (violationCheck) {
+      return res.status(400).json({
+        code: 400,
+        message: '您近期爽约次数过多，暂时无法预约，请联系管理员',
         data: null,
         timestamp: Date.now()
       })
@@ -171,19 +128,12 @@ router.post('/', authenticateToken, async (req, res, next) => {
       })
     }
 
-    const settings = await getSystemSettings()
-    const maxViolations = parseInt(settings.max_violation_count || 3)
-    const [userData] = await query('SELECT violation_count, last_violation_reset FROM users WHERE id = ?', [userId])
-    let violationCount = userData[0].violation_count || 0
-    
-    if (violationCount >= maxViolations) {
-      return res.status(400).json({
-        code: 400,
-        message: `您的爽约次数已达${maxViolations}次，暂时无法预约，请联系管理员`,
-        data: { violation_count: violationCount, max_violations: maxViolations },
-        timestamp: Date.now()
-      })
-    }
+    const newIsCross = is_cross_department ? 1 : 0
+    const newMeetingType = meeting_type || 'normal'
+
+    const isLargeMeeting = rooms[0].capacity >= 20 && (attendee_count || 0) >= 10
+    const finalMeetingType = isLargeMeeting ? 'large' : newMeetingType
+    const needApproval = finalMeetingType === 'large' || newIsCross
 
     const existingBookings = await query(
       'SELECT * FROM bookings WHERE room_id = ? AND date = ?',
@@ -222,31 +172,34 @@ router.post('/', authenticateToken, async (req, res, next) => {
       }
     }
 
-    const crossDept = is_cross_department ? 1 : 0
-    const attendeeCount = attendee_count || 0
-    const requiresApproval = needsApproval(rooms[0].room_type, attendeeCount, crossDept, settings)
-
-    let initialStatus, approvalStatus, approvalStep
-    if (requiresApproval) {
-      initialStatus = 'pending_approval'
-      approvalStatus = 'pending_dept'
-      approvalStep = 1
-    } else {
-      initialStatus = 'approved'
-      approvalStatus = 'auto_approved'
-      approvalStep = 0
-    }
-
-    const returnDays = parseInt(settings.asset_return_days || 3)
-    const expectedReturnDate = new Date(date)
-    expectedReturnDate.setDate(expectedReturnDate.getDate() + returnDays)
-    const expectedReturnDateStr = expectedReturnDate.toISOString().split('T')[0]
-
     const result = await transaction(async (conn) => {
+      let approvalStatus = 'auto_approved'
+      let currentApproverId = null
+      let checkinCode = null
+
+      if (needApproval) {
+        approvalStatus = 'pending_dept'
+        const userDept = await conn.execute(
+          'SELECT department_id FROM users WHERE id = ?',
+          [userId]
+        )
+        if (userDept[0].length > 0 && userDept[0][0].department_id) {
+          const deptAdmins = await conn.execute(
+            "SELECT id FROM users WHERE department_id = ? AND role = 'dept_admin' AND status = 1 LIMIT 1",
+            [userDept[0][0].department_id]
+          )
+          if (deptAdmins[0].length > 0) {
+            currentApproverId = deptAdmins[0][0].id
+          }
+        }
+      } else {
+        checkinCode = `CHECKIN-${Date.now().toString(36).toUpperCase()}`
+      }
+
       const [bookingResult] = await conn.execute(
-        `INSERT INTO bookings (user_id, room_id, meeting_title, meeting_description, attendee_count, attendee_departments, is_cross_department, date, start_time, end_time, status, approval_status, current_approval_step, checkin_status)
+        `INSERT INTO bookings (user_id, room_id, meeting_title, meeting_description, attendee_count, date, start_time, end_time, is_cross_department, meeting_type, approval_status, current_approver_id, checkin_code, status)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')`,
-        [userId, room_id, meeting_title, meeting_description || '', attendeeCount, attendee_departments ? JSON.stringify(attendee_departments) : null, crossDept, date, start_time, end_time, initialStatus, approvalStatus, approvalStep]
+        [userId, room_id, meeting_title, meeting_description || '', attendee_count || 0, date, start_time, end_time, newIsCross, finalMeetingType, approvalStatus, currentApproverId, checkinCode]
       )
 
       const bookingId = bookingResult.insertId
@@ -254,8 +207,8 @@ router.post('/', authenticateToken, async (req, res, next) => {
       if (assets && assets.length > 0) {
         for (const assetItem of assets) {
           await conn.execute(
-            'INSERT INTO borrowing_records (booking_id, user_id, asset_id, quantity, status, expected_return_date) VALUES (?, ?, ?, ?, ?, ?)',
-            [bookingId, userId, assetItem.asset_id, assetItem.quantity, 'borrowed', expectedReturnDateStr]
+            'INSERT INTO borrowing_records (booking_id, user_id, asset_id, quantity, expected_return_date, status) VALUES (?, ?, ?, ?, ?, ?)',
+            [bookingId, userId, assetItem.asset_id, assetItem.quantity, expected_return_date || null, 'borrowed']
           )
           await conn.execute(
             'UPDATE assets SET available_quantity = available_quantity - ? WHERE id = ?',
@@ -263,35 +216,29 @@ router.post('/', authenticateToken, async (req, res, next) => {
           )
           await conn.execute(
             'INSERT INTO asset_usage_logs (asset_id, user_id, booking_id, action, quantity, remark) VALUES (?, ?, ?, ?, ?, ?)',
-            [assetItem.asset_id, userId, bookingId, 'borrow', assetItem.quantity, `预约「${meeting_title}」借用`]
+            [assetItem.asset_id, userId, bookingId, 'borrow', assetItem.quantity, '预约借用']
           )
         }
       }
 
-      if (requiresApproval) {
-        const deptAdmins = await conn.execute(
-          "SELECT id FROM users WHERE role = 'dept_admin' AND department_id = (SELECT department_id FROM users WHERE id = ?) AND status = 1",
-          [userId]
+      if (approvalStatus === 'pending_dept' && currentApproverId) {
+        await conn.execute(
+          'INSERT INTO notifications (user_id, type, title, content, related_id) VALUES (?, ?, ?, ?, ?)',
+          [currentApproverId, 'approval', '新的预约待审批', 
+           `有新的预约「${meeting_title}」等待您审批`,
+           bookingId]
         )
-        for (const admin of deptAdmins[0]) {
-          await createNotification(
-            admin.id,
-            'approval',
-            '新的预约待审批',
-            `预约「${meeting_title}」待您审批。`,
-            bookingId
-          )
-        }
       }
 
       return { 
         booking_id: bookingId,
-        requires_approval: requiresApproval,
-        approval_status: approvalStatus
+        approval_status: approvalStatus,
+        need_approval: needApproval
       }
     })
 
-    res.success(result, requiresApproval ? '预约已提交，等待审批' : '预约创建成功')
+    const message = result.need_approval ? '预约已提交，等待审批' : '预约创建成功'
+    res.success(result, message)
   } catch (error) {
     next(error)
   }
@@ -300,7 +247,7 @@ router.post('/', authenticateToken, async (req, res, next) => {
 router.get('/my', authenticateToken, async (req, res, next) => {
   try {
     const userId = req.user.id
-    const { page, pageSize, status, date_from, date_to, approval_status } = req.query
+    const { page, pageSize, status, date_from, date_to } = req.query
     const { offset, limit } = createPagination(page, pageSize)
 
     let whereClauses = ['b.user_id = ?']
@@ -309,10 +256,6 @@ router.get('/my', authenticateToken, async (req, res, next) => {
     if (status) {
       whereClauses.push('b.status = ?')
       params.push(status)
-    }
-    if (approval_status) {
-      whereClauses.push('b.approval_status = ?')
-      params.push(approval_status)
     }
     if (date_from) {
       whereClauses.push('b.date >= ?')
@@ -326,7 +269,7 @@ router.get('/my', authenticateToken, async (req, res, next) => {
     const whereSql = `WHERE ${whereClauses.join(' AND ')}`
 
     const bookings = await query(
-      `SELECT b.*, r.name as room_name, r.location as room_location, r.image_url as room_image, r.room_type
+      `SELECT b.*, r.name as room_name, r.location as room_location, r.image_url as room_image
        FROM bookings b
        LEFT JOIN meeting_rooms r ON b.room_id = r.id
        ${whereSql}
@@ -344,8 +287,7 @@ router.get('/my', authenticateToken, async (req, res, next) => {
       ...b,
       status_name: getStatusName(b.status),
       approval_status_name: getApprovalStatusName(b.approval_status),
-      checkin_status_name: getCheckinStatusName(b.checkin_status),
-      room_type_name: getRoomTypeName(b.room_type)
+      meeting_type_name: getMeetingTypeName(b.meeting_type)
     }))
 
     res.success({
@@ -367,8 +309,8 @@ router.get('/:id', authenticateToken, async (req, res, next) => {
 
     const bookings = await query(
       `SELECT b.*, r.name as room_name, r.location as room_location, r.capacity as room_capacity,
-              r.facilities as room_facilities, r.image_url as room_image, r.room_type,
-              u.real_name as user_name, u.username, d.name as department_name, d.id as department_id
+              r.facilities as room_facilities, r.image_url as room_image,
+              u.real_name as user_name, u.username, d.name as department_name
        FROM bookings b
        LEFT JOIN meeting_rooms r ON b.room_id = r.id
        LEFT JOIN users u ON b.user_id = u.id
@@ -406,20 +348,20 @@ router.get('/:id', authenticateToken, async (req, res, next) => {
     )
 
     const approvalRecords = await query(
-      `SELECT ar.*, u.real_name as approver_name, u.role as approver_role
+      `SELECT ar.*, u.real_name as approver_name
        FROM approval_records ar
        LEFT JOIN users u ON ar.approver_id = u.id
        WHERE ar.booking_id = ?
-       ORDER BY ar.step ASC, ar.created_at ASC`,
+       ORDER BY ar.created_at DESC`,
       [id]
     )
 
     const checkinRecords = await query(
-      `SELECT cr.*, u.real_name as user_name
+      `SELECT cr.*, u.real_name as user_name, u.avatar
        FROM checkin_records cr
        LEFT JOIN users u ON cr.user_id = u.id
        WHERE cr.booking_id = ?
-       ORDER BY cr.checkin_time DESC`,
+       ORDER BY cr.checkin_time ASC`,
       [id]
     )
 
@@ -427,8 +369,7 @@ router.get('/:id', authenticateToken, async (req, res, next) => {
       ...booking,
       status_name: getStatusName(booking.status),
       approval_status_name: getApprovalStatusName(booking.approval_status),
-      checkin_status_name: getCheckinStatusName(booking.checkin_status),
-      room_type_name: getRoomTypeName(booking.room_type),
+      meeting_type_name: getMeetingTypeName(booking.meeting_type),
       borrowings,
       approval_records: approvalRecords,
       checkin_records: checkinRecords

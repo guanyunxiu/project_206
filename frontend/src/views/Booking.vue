@@ -81,7 +81,7 @@
               <el-alert
                 :type="conflictResult.has_conflict ? 'error' : 'success'"
                 :title="conflictResult.has_conflict ? '时间冲突' : '时间可用'"
-                :description="conflictResult.has_conflict ? `与「${conflictResult.conflict_info?.title}」冲突 (${conflictResult.conflict_info?.start_time}-${conflictResult.conflict_info?.end_time})` : '该时段可以预约'"
+                :description="conflictResult.has_conflict ? `与「${conflictResult.conflict_info?.title}」冲突 (${conflictResult.conflict_info?.start_time}-${conflictResult.conflict_info?.end_time})" : '该时段可以预约'"
                 show-icon
               />
             </el-form-item>
@@ -105,6 +105,15 @@
             <el-form-item label="参会人数" prop="attendee_count">
               <el-input-number v-model="bookingForm.attendee_count" :min="1" :max="selectedRoom?.capacity || 100" style="width: 100%;" />
             </el-form-item>
+            <el-form-item label="会议类型">
+              <el-select v-model="bookingForm.meeting_type" style="width: 100%;">
+                <el-option label="普通会议" value="normal" />
+                <el-option label="大型会议" value="large" />
+              </el-select>
+            </el-form-item>
+            <el-form-item label="跨部门会议">
+              <el-switch v-model="bookingForm.is_cross_department" />
+            </el-form-item>
           </el-form>
         </el-card>
       </el-col>
@@ -115,6 +124,17 @@
             <div class="step-number">4</div>
             <span>借用资产（可选）</span>
           </div>
+          <el-form label-width="100px" style="margin-bottom: 20px;">
+            <el-form-item label="预计归还日期">
+              <el-date-picker
+                v-model="bookingForm.expected_return_date"
+                type="date"
+                placeholder="选择预计归还日期"
+                style="width: 100%;"
+                :disabled-date="disabledReturnDate"
+              />
+            </el-form-item>
+          </el-form>
           <div class="asset-list">
             <el-row :gutter="16">
               <el-col :xs="12" :sm="8" v-for="asset in assetList" :key="asset.id">
@@ -161,7 +181,7 @@ import { ElMessage } from 'element-plus'
 import dayjs from 'dayjs'
 import { getRoomList } from '@/api/room'
 import { getAssetList } from '@/api/asset'
-import { checkConflict as checkConflictApi, createBooking } from '@/api/booking'
+import { checkConflict, createBooking } from '@/api/booking'
 
 const route = useRoute()
 const router = useRouter()
@@ -181,7 +201,10 @@ const bookingForm = reactive({
   end_time: '',
   meeting_title: '',
   meeting_description: '',
-  attendee_count: 1
+  attendee_count: 1,
+  is_cross_department: false,
+  meeting_type: 'normal',
+  expected_return_date: ''
 })
 
 const bookingRules = {
@@ -191,6 +214,11 @@ const bookingRules = {
 
 function disabledDate(time) {
   return time.getTime() < dayjs().startOf('day').toDate().getTime()
+}
+
+function disabledReturnDate(time) {
+  if (!bookingForm.date) return true
+  return time.getTime() < dayjs(bookingForm.date).startOf('day').toDate().getTime()
 }
 
 async function fetchRooms() {
@@ -229,9 +257,9 @@ async function onDateChange() {
 }
 
 async function checkConflict() {
-  if (bookingForm.room_id && bookingForm.date && bookingForm.start_time && bookingForm.end_time) {
+  if (!bookingForm.room_id && bookingForm.date && bookingForm.start_time && bookingForm.end_time) {
     try {
-      const res = await checkConflictApi({
+      const res = await checkConflict({
         room_id: bookingForm.room_id,
         date: bookingForm.date,
         start_time: bookingForm.start_time,
@@ -260,6 +288,9 @@ function resetForm() {
   bookingForm.meeting_title = ''
   bookingForm.meeting_description = ''
   bookingForm.attendee_count = 1
+  bookingForm.is_cross_department = false
+  bookingForm.meeting_type = 'normal'
+  bookingForm.expected_return_date = ''
   selectedRoom.value = null
   conflictResult.value = null
   Object.keys(assetQuantities).forEach(key => {
@@ -290,10 +321,15 @@ async function submitBooking() {
       .filter(([id, qty]) => qty > 0)
       .map(([id, qty]) => ({ asset_id: parseInt(id), quantity: qty }))
 
+    const expectedReturnDate = bookingForm.expected_return_date 
+      ? dayjs(bookingForm.expected_return_date).format('YYYY-MM-DD') 
+      : null
+
     submitting.value = true
     try {
       await createBooking({
         ...bookingForm,
+        expected_return_date: expectedReturnDate,
         assets
       })
       ElMessage.success('预约成功')
