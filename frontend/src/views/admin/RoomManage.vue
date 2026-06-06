@@ -49,7 +49,7 @@
       <el-table-column label="操作" width="180" fixed="right">
         <template #default="{ row }">
           <el-button type="primary" size="small" link @click="openEditDialog(row)">编辑</el-button>
-          <el-button type="danger" size="small" link @click="deleteRoom(row)">删除</el-button>
+          <el-button type="danger" size="small" link @click="handleDeleteRoom(row)">删除</el-button>
         </template>
       </el-table-column>
     </el-table>
@@ -233,14 +233,14 @@ async function saveRoom() {
   })
 }
 
-async function deleteRoom(row) {
+async function handleDeleteRoom(row) {
   ElMessageBox.confirm(`确定要删除会议室「${row.name}」吗？`, '提示', {
     confirmButtonText: '确定',
     cancelButtonText: '取消',
     type: 'warning'
   }).then(async () => {
     try {
-      await deleteRoom(row.id)
+      await deleteRoomApi(row.id)
       ElMessage.success('删除成功')
       fetchRooms()
     } catch (error) {

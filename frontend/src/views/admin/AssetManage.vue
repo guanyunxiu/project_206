@@ -54,7 +54,7 @@
       <el-table-column label="操作" width="180" fixed="right">
         <template #default="{ row }">
           <el-button type="primary" size="small" link @click="openEditDialog(row)">编辑</el-button>
-          <el-button type="danger" size="small" link @click="deleteAsset(row)">删除</el-button>
+          <el-button type="danger" size="small" link @click="handleDeleteAsset(row)">删除</el-button>
         </template>
       </el-table-column>
     </el-table>
@@ -115,7 +115,7 @@
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Search } from '@element-plus/icons-vue'
-import { createAsset, updateAsset, deleteAsset, getAssetList } from '@/api/asset'
+import { createAsset, updateAsset, deleteAsset as deleteAssetApi, getAssetList } from '@/api/asset'
 
 const assetList = ref([])
 const loading = ref(false)
@@ -227,14 +227,14 @@ async function saveAsset() {
   })
 }
 
-async function deleteAsset(row) {
+async function handleDeleteAsset(row) {
   ElMessageBox.confirm(`确定要删除资产「${row.name}」吗？`, '提示', {
     confirmButtonText: '确定',
     cancelButtonText: '取消',
     type: 'warning'
   }).then(async () => {
     try {
-      await deleteAsset(row.id)
+      await deleteAssetApi(row.id)
       ElMessage.success('删除成功')
       fetchAssets()
     } catch (error) {

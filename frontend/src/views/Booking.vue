@@ -249,7 +249,7 @@ function isAssetSelected(assetId) {
 }
 
 function onAssetQtyChange(asset) {
-  if (assetQuantities[asset.id] = Math.max(0, Math.min(asset.available_quantity, assetQuantities[asset.id] || 0))
+  assetQuantities[asset.id] = Math.max(0, Math.min(asset.available_quantity, assetQuantities[asset.id] || 0))
 }
 
 function resetForm() {
