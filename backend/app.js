@@ -11,6 +11,8 @@ const bookingRoutes = require('./routes/bookings')
 const assetRoutes = require('./routes/assets')
 const adminRoutes = require('./routes/admin')
 const statisticsRoutes = require('./routes/statistics')
+const approvalRoutes = require('./routes/approvals')
+const checkinRoutes = require('./routes/checkins')
 
 const app = express()
 const DEFAULT_PORT = parseInt(process.env.PORT) || 3000
@@ -31,6 +33,8 @@ app.use('/api/bookings', bookingRoutes)
 app.use('/api/assets', assetRoutes)
 app.use('/api/admin', adminRoutes)
 app.use('/api/statistics', statisticsRoutes)
+app.use('/api/approvals', approvalRoutes)
+app.use('/api/checkins', checkinRoutes)
 
 app.use(notFoundHandler)
 

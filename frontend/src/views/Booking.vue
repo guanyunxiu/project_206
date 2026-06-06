@@ -55,9 +55,9 @@
             <el-form-item label="开始时间">
               <el-time-select
                 v-model="bookingForm.start_time"
-                :start="08:00"
-                :step="00:30"
-                :end="19:30"
+                start="08:00"
+                step="00:30"
+                end="19:30"
                 placeholder="选择开始时间"
                 style="width: 100%;"
                 :disabled="!bookingForm.room_id || !bookingForm.date"
@@ -67,9 +67,9 @@
             <el-form-item label="结束时间">
               <el-time-select
                 v-model="bookingForm.end_time"
-                :start="08:30"
-                :step="00:30"
-                :end="20:00"
+                start="08:30"
+                step="00:30"
+                end="20:00"
                 placeholder="选择结束时间"
                 style="width: 100%;"
                 :disabled="!bookingForm.start_time"
@@ -81,7 +81,7 @@
               <el-alert
                 :type="conflictResult.has_conflict ? 'error' : 'success'"
                 :title="conflictResult.has_conflict ? '时间冲突' : '时间可用'"
-                :description="conflictResult.has_conflict ? `与「${conflictResult.conflict_info?.title}」冲突 (${conflictResult.conflict_info?.start_time}-${conflictResult.conflict_info?.end_time})" : '该时段可以预约'"
+                :description="conflictResult.has_conflict ? `与「${conflictResult.conflict_info?.title}」冲突 (${conflictResult.conflict_info?.start_time}-${conflictResult.conflict_info?.end_time})` : '该时段可以预约'"
                 show-icon
               />
             </el-form-item>
@@ -161,7 +161,7 @@ import { ElMessage } from 'element-plus'
 import dayjs from 'dayjs'
 import { getRoomList } from '@/api/room'
 import { getAssetList } from '@/api/asset'
-import { checkConflict, createBooking } from '@/api/booking'
+import { checkConflict as checkConflictApi, createBooking } from '@/api/booking'
 
 const route = useRoute()
 const router = useRouter()
@@ -229,9 +229,9 @@ async function onDateChange() {
 }
 
 async function checkConflict() {
-  if (!bookingForm.room_id && bookingForm.date && bookingForm.start_time && bookingForm.end_time) {
+  if (bookingForm.room_id && bookingForm.date && bookingForm.start_time && bookingForm.end_time) {
     try {
-      const res = await checkConflict({
+      const res = await checkConflictApi({
         room_id: bookingForm.room_id,
         date: bookingForm.date,
         start_time: bookingForm.start_time,

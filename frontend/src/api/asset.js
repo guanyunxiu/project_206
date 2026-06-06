@@ -53,3 +53,66 @@ export function getBorrowingList(params) {
     params
   })
 }
+
+export function createRepair(data) {
+  return request({
+    url: '/assets/repair',
+    method: 'post',
+    data
+  })
+}
+
+export function getRepairList(params) {
+  return request({
+    url: '/assets/repairs',
+    method: 'get',
+    params
+  })
+}
+
+export function processRepair(id, data) {
+  return request({
+    url: `/assets/repair/${id}/process`,
+    method: 'put',
+    data
+  })
+}
+
+export function getUsageLogs(assetId, params) {
+  return request({
+    url: `/assets/usage-logs/${assetId}`,
+    method: 'get',
+    params
+  })
+}
+
+export function getOverdueAssets(params) {
+  return request({
+    url: '/assets/overdue',
+    method: 'get',
+    params
+  })
+}
+
+export function remindOverdue() {
+  return request({
+    url: '/assets/remind-overdue',
+    method: 'post'
+  })
+}
+
+export function getMyReminders(params) {
+  return request({
+    url: '/assets/reminders/my',
+    method: 'get',
+    params
+  })
+}
+
+export function markReminderRead(id) {
+  return request({
+    url: `/assets/reminders/${id}/read`,
+    method: 'put'
+  })
+}
+

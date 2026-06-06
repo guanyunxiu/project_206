@@ -37,19 +37,101 @@ function getRoleName(role) {
 function getStatusName(status) {
   const statusMap = {
     'pending': '待使用',
+    'pending_approval': '待审批',
+    'approved': '已通过',
+    'rejected': '已拒绝',
     'in_use': '使用中',
+    'completed': '已完成',
+    'cancelled': '已取消',
+    'no_show': '已爽约'
+  }
+  return statusMap[status] || status
+}
+
+function getApprovalStatusName(status) {
+  const statusMap = {
+    'auto_approved': '自动通过',
+    'pending_dept': '待部门审批',
+    'pending_admin': '待行政确认',
+    'approved': '已通过',
+    'rejected': '已拒绝'
+  }
+  return statusMap[status] || status
+}
+
+function getCheckinStatusName(status) {
+  const statusMap = {
+    'pending': '待签到',
+    'checked_in': '已签到',
+    'no_show': '未签到'
+  }
+  return statusMap[status] || status
+}
+
+function getCheckinMethodName(method) {
+  const methodMap = {
+    'qrcode': '二维码签到',
+    'manual': '后台签到'
+  }
+  return methodMap[method] || method
+}
+
+function getViolationTypeName(type) {
+  const typeMap = {
+    'no_show': '未签到爽约',
+    'late_cancel': '临时取消',
+    'other': '其他违规'
+  }
+  return typeMap[type] || type
+}
+
+function getBorrowStatusName(status) {
+  const statusMap = {
+    'borrowed': '借用中',
+    'returned': '已归还',
+    'overdue': '已逾期'
+  }
+  return statusMap[status] || status
+}
+
+function getRepairStatusName(status) {
+  const statusMap = {
+    'pending': '待处理',
+    'repairing': '维修中',
     'completed': '已完成',
     'cancelled': '已取消'
   }
   return statusMap[status] || status
 }
 
-function getBorrowStatusName(status) {
-  const statusMap = {
-    'borrowed': '借用中',
-    'returned': '已归还'
+function getAssetActionName(action) {
+  const actionMap = {
+    'borrow': '借用',
+    'return': '归还',
+    'repair': '报修',
+    'repair_complete': '维修完成'
   }
-  return statusMap[status] || status
+  return actionMap[action] || action
+}
+
+function getRoomTypeName(type) {
+  const typeMap = {
+    'small': '小型会议室',
+    'medium': '中型会议室',
+    'large': '大型会议室',
+    'training': '培训室'
+  }
+  return typeMap[type] || type
+}
+
+function getNotificationTypeName(type) {
+  const typeMap = {
+    'approval': '审批通知',
+    'checkin': '签到提醒',
+    'asset': '资产通知',
+    'system': '系统通知'
+  }
+  return typeMap[type] || type
 }
 
 function getAssetCategoryName(category) {
@@ -97,7 +179,15 @@ module.exports = {
   createPagination,
   getRoleName,
   getStatusName,
+  getApprovalStatusName,
+  getCheckinStatusName,
+  getCheckinMethodName,
+  getViolationTypeName,
   getBorrowStatusName,
+  getRepairStatusName,
+  getAssetActionName,
   getAssetCategoryName,
+  getRoomTypeName,
+  getNotificationTypeName,
   checkTimeConflict
 }

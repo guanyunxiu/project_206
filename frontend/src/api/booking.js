@@ -8,6 +8,13 @@ export function checkConflict(data) {
   })
 }
 
+export function checkViolation() {
+  return request({
+    url: '/bookings/check-violation',
+    method: 'post'
+  })
+}
+
 export function createBooking(data) {
   return request({
     url: '/bookings',
@@ -51,5 +58,34 @@ export function getStatistics(params) {
     url: '/statistics',
     method: 'get',
     params
+  })
+}
+
+export function getDashboardData() {
+  return request({
+    url: '/statistics/dashboard',
+    method: 'get'
+  })
+}
+
+export function getAnomalies() {
+  return request({
+    url: '/statistics/anomalies',
+    method: 'get'
+  })
+}
+
+export function getSystemSettings() {
+  return request({
+    url: '/statistics/settings',
+    method: 'get'
+  })
+}
+
+export function updateSystemSettings(data) {
+  return request({
+    url: '/statistics/settings',
+    method: 'put',
+    data
   })
 }
