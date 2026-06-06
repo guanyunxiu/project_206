@@ -51,7 +51,7 @@
             size="small"
             link
             :disabled="row.status === 'cancelled' || row.status === 'completed'"
-            @click="cancelBooking(row)"
+            @click="handleCancelBooking(row)"
           >
             取消
           </el-button>
@@ -187,7 +187,7 @@ async function viewDetail(row) {
   }
 }
 
-async function cancelBooking(row) {
+async function handleCancelBooking(row) {
   ElMessageBox.confirm(`确定要取消预约「${row.meeting_title}」吗？`, '提示', {
     confirmButtonText: '确定',
     cancelButtonText: '取消',

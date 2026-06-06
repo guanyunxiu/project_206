@@ -22,7 +22,7 @@ router.get('/', authenticateToken, async (req, res, next) => {
       whereClauses.push('capacity >= ?')
       params.push(parseInt(capacity))
     }
-    if (status !== undefined) {
+    if (status !== undefined && status !== '') {
       whereClauses.push('status = ?')
       params.push(parseInt(status))
     }
@@ -30,8 +30,8 @@ router.get('/', authenticateToken, async (req, res, next) => {
     const whereSql = whereClauses.length > 0 ? `WHERE ${whereClauses.join(' AND ')}` : ''
 
     const rooms = await query(
-      `SELECT * FROM meeting_rooms ${whereSql} ORDER BY id ASC LIMIT ? OFFSET ?`,
-      [...params, limit, offset]
+      `SELECT * FROM meeting_rooms ${whereSql} ORDER BY id ASC LIMIT ${parseInt(limit)} OFFSET ${parseInt(offset)}`,
+      params
     )
 
     const [countResult] = await query(

@@ -22,7 +22,7 @@ router.get('/', authenticateToken, async (req, res, next) => {
       whereClauses.push('category = ?')
       params.push(category)
     }
-    if (status !== undefined) {
+    if (status !== undefined && status !== '') {
       whereClauses.push('status = ?')
       params.push(parseInt(status))
     }
@@ -30,8 +30,8 @@ router.get('/', authenticateToken, async (req, res, next) => {
     const whereSql = whereClauses.length > 0 ? `WHERE ${whereClauses.join(' AND ')}` : ''
 
     const assets = await query(
-      `SELECT * FROM assets ${whereSql} ORDER BY id ASC LIMIT ? OFFSET ?`,
-      [...params, limit, offset]
+      `SELECT * FROM assets ${whereSql} ORDER BY id ASC LIMIT ${parseInt(limit)} OFFSET ${parseInt(offset)}`,
+      params
     )
 
     const list = assets.map(a => ({
@@ -81,8 +81,8 @@ router.get('/my', authenticateToken, async (req, res, next) => {
        LEFT JOIN meeting_rooms r ON b.room_id = r.id
        ${whereSql}
        ORDER BY br.borrowed_at DESC
-       LIMIT ? OFFSET ?`,
-      [...params, limit, offset]
+       LIMIT ${parseInt(limit)} OFFSET ${parseInt(offset)}`,
+      params
     )
 
     const list = borrowings.map(br => ({

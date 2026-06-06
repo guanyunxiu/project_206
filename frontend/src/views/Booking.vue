@@ -21,7 +21,7 @@
             <el-option
               v-for="room in roomList"
               :key="room.id"
-              :label="`${room.name} (${room.capacity}人)"
+              :label="`${room.name} (${room.capacity}人)`"
               :value="room.id"
             />
           </el-select>

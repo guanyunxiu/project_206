@@ -48,7 +48,7 @@
             size="small"
             link
             :disabled="row.status === 'returned'"
-            @click="returnAsset(row)"
+            @click="handleReturnAsset(row)"
           >
             归还
           </el-button>
@@ -118,7 +118,7 @@ function formatDateTime(datetime) {
   return datetime ? dayjs(datetime).format('YYYY-MM-DD HH:mm:ss') : '-'
 }
 
-async function returnAsset(row) {
+async function handleReturnAsset(row) {
   ElMessageBox.confirm(`确定要归还「${row.asset_name}」吗？`, '提示', {
     confirmButtonText: '确定',
     cancelButtonText: '取消',

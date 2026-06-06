@@ -18,7 +18,7 @@ router.get('/rooms', authenticateToken, requireDeptAdminOrHigher(), async (req, 
       const keywordParam = `%${keyword}%`
       params.push(keywordParam, keywordParam)
     }
-    if (status !== undefined) {
+    if (status !== undefined && status !== '') {
       whereClauses.push('status = ?')
       params.push(parseInt(status))
     }
@@ -26,8 +26,8 @@ router.get('/rooms', authenticateToken, requireDeptAdminOrHigher(), async (req, 
     const whereSql = whereClauses.length > 0 ? `WHERE ${whereClauses.join(' AND ')}` : ''
 
     const rooms = await query(
-      `SELECT * FROM meeting_rooms ${whereSql} ORDER BY id DESC LIMIT ? OFFSET ?`,
-      [...params, limit, offset]
+      `SELECT * FROM meeting_rooms ${whereSql} ORDER BY id DESC LIMIT ${parseInt(limit)} OFFSET ${parseInt(offset)}`,
+      params
     )
 
     const [countResult] = await query(
@@ -188,7 +188,7 @@ router.get('/assets', authenticateToken, requireDeptAdminOrHigher(), async (req,
       whereClauses.push('category = ?')
       params.push(category)
     }
-    if (status !== undefined) {
+    if (status !== undefined && status !== '') {
       whereClauses.push('status = ?')
       params.push(parseInt(status))
     }
@@ -196,8 +196,8 @@ router.get('/assets', authenticateToken, requireDeptAdminOrHigher(), async (req,
     const whereSql = whereClauses.length > 0 ? `WHERE ${whereClauses.join(' AND ')}` : ''
 
     const assets = await query(
-      `SELECT * FROM assets ${whereSql} ORDER BY id DESC LIMIT ? OFFSET ?`,
-      [...params, limit, offset]
+      `SELECT * FROM assets ${whereSql} ORDER BY id DESC LIMIT ${parseInt(limit)} OFFSET ${parseInt(offset)}`,
+      params
     )
 
     const list = assets.map(a => ({
@@ -382,8 +382,8 @@ router.get('/assets/borrowings', authenticateToken, requireDeptAdminOrHigher(), 
        LEFT JOIN bookings b ON br.booking_id = b.id
        ${whereSql}
        ORDER BY br.borrowed_at DESC
-       LIMIT ? OFFSET ?`,
-      [...params, limit, offset]
+       LIMIT ${parseInt(limit)} OFFSET ${parseInt(offset)}`,
+      params
     )
 
     const list = borrowings.map(br => ({
@@ -448,8 +448,8 @@ router.get('/bookings', authenticateToken, requireDeptAdminOrHigher(), async (re
        LEFT JOIN departments d ON u.department_id = d.id
        ${whereSql}
        ORDER BY b.date DESC, b.start_time DESC
-       LIMIT ? OFFSET ?`,
-      [...params, limit, offset]
+       LIMIT ${parseInt(limit)} OFFSET ${parseInt(offset)}`,
+      params
     )
 
     const list = bookings.map(b => ({
@@ -490,7 +490,7 @@ router.get('/users', authenticateToken, requireAdminOrHigher(), async (req, res,
       whereClauses.push('u.role = ?')
       params.push(role)
     }
-    if (status !== undefined) {
+    if (status !== undefined && status !== '') {
       whereClauses.push('u.status = ?')
       params.push(parseInt(status))
     }
@@ -508,8 +508,8 @@ router.get('/users', authenticateToken, requireAdminOrHigher(), async (req, res,
        LEFT JOIN departments d ON u.department_id = d.id
        ${whereSql}
        ORDER BY u.id DESC
-       LIMIT ? OFFSET ?`,
-      [...params, limit, offset]
+       LIMIT ${parseInt(limit)} OFFSET ${parseInt(offset)}`,
+      params
     )
 
     const list = users.map(u => ({

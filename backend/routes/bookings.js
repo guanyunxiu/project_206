@@ -207,8 +207,8 @@ router.get('/my', authenticateToken, async (req, res, next) => {
        LEFT JOIN meeting_rooms r ON b.room_id = r.id
        ${whereSql}
        ORDER BY b.date DESC, b.start_time DESC
-       LIMIT ? OFFSET ?`,
-      [...params, limit, offset]
+       LIMIT ${parseInt(limit)} OFFSET ${parseInt(offset)}`,
+      params
     )
 
     const [countResult] = await query(

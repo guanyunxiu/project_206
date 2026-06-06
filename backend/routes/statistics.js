@@ -65,16 +65,16 @@ router.get('/', authenticateToken, async (req, res, next) => {
 
     res.success({
       overview: {
-        total_rooms: totalRooms[0].count,
-        total_assets: totalAssets[0].count,
-        total_users: totalUsers[0].count,
-        total_bookings: totalBookings[0].count,
-        pending_bookings: pendingBookings[0].count,
-        completed_bookings: completedBookings[0].count,
-        cancelled_bookings: cancelledBookings[0].count,
-        borrowed_assets: borrowedAssets[0].count,
-        total_asset_quantity: totalAssetQty[0].total || 0,
-        available_asset_quantity: totalAssetQty[0].available || 0
+        total_rooms: (totalRooms[0] || {}).count || 0,
+        total_assets: (totalAssets[0] || {}).count || 0,
+        total_users: (totalUsers[0] || {}).count || 0,
+        total_bookings: (totalBookings[0] || {}).count || 0,
+        pending_bookings: (pendingBookings[0] || {}).count || 0,
+        completed_bookings: (completedBookings[0] || {}).count || 0,
+        cancelled_bookings: (cancelledBookings[0] || {}).count || 0,
+        borrowed_assets: (borrowedAssets[0] || {}).count || 0,
+        total_asset_quantity: (totalAssetQty[0] || {}).total || 0,
+        available_asset_quantity: (totalAssetQty[0] || {}).available || 0
       },
       room_usage: roomUsage,
       daily_bookings: dailyBookings,
